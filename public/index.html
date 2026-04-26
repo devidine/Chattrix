@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" href="icon.png" type="image/png">
+    <title>Chattrix V3</title>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap');
+        
+        :root {
+            --bg-color: #f4f6f9; 
+            --container-bg: rgba(255, 255, 255, 0.95); 
+            --text-main: #2d3436; 
+            --text-sub: #636e72;
+            --primary: #3742fa; 
+            --bubble-sent: linear-gradient(135deg, #3742fa, #5352ed); 
+            --bubble-recv: #ffffff;
+            --border-color: rgba(0, 0, 0, 0.08); 
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+        }
+
+        .dark-mode {
+            --bg-color: #121212; 
+            --container-bg: rgba(25, 25, 30, 0.95); 
+            --text-main: #f1f2f6; 
+            --text-sub: #a4b0be;
+            --primary: #5352ed; 
+            --bubble-sent: linear-gradient(135deg, #5352ed, #3742fa); 
+            --bubble-recv: #2f3542;
+            --border-color: rgba(255, 255, 255, 0.05); 
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: 'Pretendard', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+        
+        body { 
+            background: var(--bg-color); 
+            height: 100vh; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            overflow: hidden; 
+            color: var(--text-main); 
+            transition: background 0.4s ease; 
+        }
+        
+        /* 타격감 화면 흔들림 애니메이션 */
+        @keyframes shake { 
+            0%, 100% { transform: translate(0, 0) rotate(0); } 
+            20% { transform: translate(-10px, 8px) rotate(-2deg); } 
+            40% { transform: translate(10px, -8px) rotate(2deg); } 
+            60% { transform: translate(-10px, 8px) rotate(-1deg); } 
+            80% { transform: translate(10px, -8px) rotate(1deg); } 
+        }
+        .shake-screen { 
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; 
+        }
+
+        /* 메인 앱 컨테이너 */
+        .app-container { 
+            width: 100%; 
+            max-width: 450px; 
+            height: 100vh; 
+            max-height: 900px; 
+            background: var(--container-bg); 
+            backdrop-filter: blur(25px); 
+            border-radius: 35px; 
+            box-shadow: var(--shadow); 
+            position: relative; 
+            overflow: hidden; 
+            border: 1px solid var(--border-color); 
+        }
+
+        /* 화면 슬라이드 트랜지션 */
+        .screen { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1); /* 젤리처럼 쫀득한 움직임 */
+            display: flex; 
+            flex-direction: column; 
+            z-index: 1; 
+        }
+
+        /* 공통 폼 엘리먼트 */
+        input, button { 
+            outline: none; 
+            border: none; 
+            background: none; 
+        }
+        
+        .btn-main { 
+            background: var(--primary); 
+            color: white; 
+            padding: 18px; 
+            border-radius: 18px; 
+            font-weight: 800; 
+            font-size: 16px; 
+            width: 100%; 
+            cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            box-shadow: 0 5px 15px rgba(55, 66, 250, 0.3); 
+        }
+        .btn-main:hover { 
+            transform: translateY(-3px); 
+            box-shadow: 0 10px 25px rgba(55, 66, 250, 0.5); 
+        }
+        .btn-main:active { 
+            transform: scale(0.95); 
+        }
+        
+        .input-box { 
+            width: 100%; 
+            padding: 18px; 
+            background: rgba(0,0,0,0.04); 
+            border-radius: 18px; 
+            font-size: 16px; 
+            margin-bottom: 15px; 
+            color: var(--text-main); 
+            font-weight: 600; 
+            transition: background 0.3s, box-shadow 0.3s; 
+        }
+        .input-box:focus {
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        .dark-mode .input-box { background: rgba(255,255,255,0.05); }
+        
+        /* 로비 및 헤더 스타일 */
+        .chat-header { 
+            height: 75px; 
+            border-bottom: 1px solid var(--border-color); 
+            display: flex; 
+            align-items: center; 
+            padding: 0 20px; 
+            justify-content: space-between; 
+            z-index: 20; 
+            background: transparent; 
+        }
+        
+        .chat-body-wrapper { 
+            flex: 1; 
+            position: relative; 
+            overflow-y: auto; 
+            overflow-x: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            scroll-behavior: smooth; 
+        }
+        
+        /* 커스텀 스크롤바 */
+        .chat-body-wrapper::-webkit-scrollbar { width: 6px; }
+        .chat-body-wrapper::-webkit-scrollbar-thumb { 
+            background: rgba(0,0,0,0.15); 
+            border-radius: 10px; 
+        }
+        .dark-mode .chat-body-wrapper::-webkit-scrollbar-thumb { 
+            background: rgba(255,255,255,0.2); 
+        }
+        
+        .chat-content { 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            position: relative; 
+            flex: 1; 
+        }
+
+        /* 💬 메시지 버블 및 애니메이션 */
+        .msg-row { 
+            display: flex; 
+            gap: 12px; 
+            animation: springIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; 
+            position: relative; 
+            transform-origin: bottom center; 
+            transition: transform 0.5s ease-out, opacity 0.5s; 
+        }
+        @keyframes springIn { 
+            0% { opacity:0; transform: translateY(30px) scale(0.8); } 
+            100% { opacity:1; transform: translateY(0) scale(1); } 
+        }
+        
+        .msg-row.sent { 
+            align-self: flex-end; 
+            flex-direction: row-reverse; 
+            transform-origin: bottom right; 
+        }
+        .msg-row.received { 
+            transform-origin: bottom left; 
+        }
+        
+        .profile-img { 
+            width: 42px; 
+            height: 42px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            flex-shrink: 0; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .msg-content-box { 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+        }
+        
+        .msg-bubble { 
+            padding: 14px 18px; 
+            font-size: 15px; 
+            line-height: 1.4; 
+            border-radius: 20px; 
+            max-width: 28ch; 
+            word-wrap: break-word; 
+            word-break: break-all; 
+            position: relative; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+            z-index: 5; 
+            cursor: pointer; 
+            transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            overflow: hidden; 
+        }
+        .msg-bubble:active { transform: scale(0.96); }
+        
+        .sent .msg-bubble { 
+            background: var(--bubble-sent); 
+            color: white; 
+            border-top-right-radius: 4px; 
+        }
+        .received .msg-bubble { 
+            background: var(--bubble-recv); 
+            color: var(--text-main); 
+            border-top-left-radius: 4px; 
+            border: 1px solid var(--border-color); 
+        }
+        
+        /* 이미지 전용 스타일 */
+        .chat-image { 
+            max-width: 100%; 
+            max-height: 250px; 
+            border-radius: 12px; 
+            object-fit: cover; 
+            display: block; 
+            margin-top: 4px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
+        .img-download-text { 
+            font-size: 11px; 
+            text-align: center; 
+            margin-top: 6px; 
+            opacity: 0.8; 
+            font-weight: 600; 
+        }
+
+        /* 답장 UI */
+        .reply-quote { 
+            font-size: 12px; 
+            background: rgba(0,0,0,0.1); 
+            padding: 8px 12px; 
+            border-radius: 10px; 
+            margin-bottom: 8px; 
+            border-left: 3px solid rgba(255,255,255,0.7); 
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .received .reply-quote { 
+            background: rgba(0,0,0,0.05); 
+            border-left-color: var(--primary); 
+        }
+        .dark-mode .received .reply-quote {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        /* ✨ 리액션 및 이모지 추가 버튼 */
+        .reaction-bar { 
+            position: absolute; 
+            bottom: -12px; 
+            display: flex; 
+            gap: 4px; 
+            z-index: 10; 
+        }
+        .sent .reaction-bar { right: 15px; }
+        .received .reaction-bar { left: 15px; }
+        
+        .reaction-badge { 
+            background: var(--container-bg); 
+            border: 1px solid var(--border-color); 
+            border-radius: 15px; 
+            padding: 3px 8px; 
+            font-size: 12px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12); 
+            animation: springIn 0.3s; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 4px; 
+            transition: 0.2s;
+        }
+        .reaction-badge:hover { transform: translateY(-2px); }
+        .reaction-badge.my-react { 
+            border-color: var(--primary); 
+            background: rgba(55, 66, 250, 0.1); 
+        }
+        
+        .add-react-btn { 
+            position: absolute; 
+            bottom: -5px; 
+            right: -30px; 
+            font-size: 18px; 
+            cursor: pointer; 
+            opacity: 0.5; 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            background: var(--container-bg); 
+            border-radius: 50%; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15); 
+            width: 28px; 
+            height: 28px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 10; 
+        }
+        .msg-content-box:hover .add-react-btn { 
+            opacity: 1; 
+            transform: scale(1.1); 
+        }
+        .sent .add-react-btn { 
+            right: auto; 
+            left: -30px; 
+        }
+
+        /* 🔪 정밀 위치 절단 애니메이션 */
+        .cut-falling { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            margin: 0; 
+            animation: sliceDrop 1.2s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards; 
+            pointer-events: none; 
+            z-index: 6; 
+        }
+        @keyframes sliceDrop { 
+            0% { transform: translateY(0) rotate(0deg); } 
+            20% { transform: translateY(5px) rotate(-2deg); } 
+            100% { transform: translateY(800px) rotate(35deg); opacity: 0; } 
+        }
+
+        /* 🔫 총알 크랙 이펙트 */
+        .glass-crack { 
+            position: absolute; 
+            width: 35px; 
+            height: 35px; 
+            background-image: radial-gradient(transparent 40%, rgba(255,255,255,0.4) 40%, transparent 50%), 
+                              linear-gradient(45deg, transparent 48%, rgba(255,255,255,0.6) 48%, rgba(255,255,255,0.6) 52%, transparent 52%), 
+                              linear-gradient(-45deg, transparent 48%, rgba(255,255,255,0.6) 48%, rgba(255,255,255,0.6) 52%, transparent 52%); 
+            transform: translate(-50%, -50%); 
+            border-radius: 50%; 
+            pointer-events: none; 
+        }
+        .received .glass-crack { 
+            background-image: radial-gradient(transparent 40%, rgba(0,0,0,0.2) 40%, transparent 50%), 
+                              linear-gradient(45deg, transparent 48%, rgba(0,0,0,0.3) 48%, rgba(0,0,0,0.3) 52%, transparent 52%), 
+                              linear-gradient(-45deg, transparent 48%, rgba(0,0,0,0.3) 48%, rgba(0,0,0,0.3) 52%, transparent 52%); 
+        }
+
+        /* 타이핑 인디케이터 */
+        .typing-indicator { 
+            height: 25px; 
+            padding: 0 20px 10px; 
+            font-size: 13px; 
+            color: var(--text-sub); 
+            font-weight: 600; 
+            font-style: italic; 
+            z-index: 10; 
+            background: transparent; 
+        }
+
+        /* 답장 미리보기 바 */
+        .reply-preview-bar { 
+            padding: 12px 20px; 
+            background: rgba(55, 66, 250, 0.08); 
+            border-top: 1px solid var(--border-color); 
+            display: none; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 13px; 
+            font-weight: 700; 
+            color: var(--primary); 
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(10px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+
+        /* 하단 입력 영역 */
+        .chat-footer { 
+            padding: 15px 20px 25px; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            border-top: 1px solid var(--border-color); 
+            background: var(--container-bg); 
+            z-index: 40; 
+            position: relative; 
+        }
+        
+        .msg-input-wrapper { 
+            flex: 1; 
+            background: var(--bubble-recv); 
+            border: 1px solid var(--border-color); 
+            border-radius: 24px; 
+            padding: 12px 18px; 
+            display: flex; 
+            align-items: center; 
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .msg-input-wrapper:focus-within { 
+            box-shadow: 0 0 0 2px var(--primary), 0 5px 15px rgba(55, 66, 250, 0.2); 
+            transform: translateY(-2px);
+        }
+        .msg-input { 
+            width: 100%; 
+            border: none; 
+            background: transparent; 
+            font-size: 15px; 
+            color: var(--text-main); 
+        }
+        
+        .effect-btn { 
+            font-size: 24px; 
+            cursor: pointer; 
+            transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            color: var(--text-sub);
+        }
+        .effect-btn:hover { transform: scale(1.15) rotate(5deg); color: var(--primary); }
+        .effect-btn:active { transform: scale(0.9); }
+
+        /* 컨텍스트 메뉴 및 팝업들 */
+        .context-menu { 
+            position: absolute; 
+            background: var(--container-bg); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid var(--border-color); 
+            border-radius: 16px; 
+            padding: 8px; 
+            box-shadow: var(--shadow); 
+            z-index: 100; 
+            display: none; 
+            flex-direction: column; 
+            min-width: 150px; 
+            animation: springIn 0.3s;
+        }
+        
+        .context-item { 
+            padding: 12px 15px; 
+            font-size: 14px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            border-radius: 10px; 
+            transition: 0.2s; 
+            text-align: center; 
+        }
+        .context-item:hover { 
+            background: rgba(55, 66, 250, 0.1); 
+            color: var(--primary); 
+        }
+        
+        .reaction-picker { 
+            position: absolute; 
+            background: var(--container-bg); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid var(--border-color); 
+            border-radius: 25px; 
+            padding: 12px; 
+            box-shadow: var(--shadow); 
+            z-index: 100; 
+            display: none; 
+            gap: 12px; 
+            font-size: 26px; 
+            animation: springIn 0.3s;
+        }
+        .reaction-picker span { 
+            cursor: pointer; 
+            transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            display: inline-block; 
+        }
+        .reaction-picker span:hover { transform: scale(1.4) translateY(-3px); }
+
+        .effect-menu { 
+            position: absolute; 
+            bottom: 85px; 
+            left: 20px; 
+            background: var(--container-bg); 
+            border-radius: 20px; 
+            padding: 12px; 
+            box-shadow: var(--shadow); 
+            display: none; 
+            gap: 12px; 
+            border: 1px solid var(--border-color); 
+            z-index: 30; 
+            animation: springIn 0.3s;
+        }
+
+        /* ⚔️ 샌드박스 툴바 및 팔레트 */
+        .sandbox-toolbar { 
+            position: absolute; 
+            top: 85px; 
+            right: 15px; 
+            background: var(--container-bg); 
+            border: 1px solid var(--border-color); 
+            border-radius: 25px; 
+            padding: 8px; 
+            display: none; 
+            flex-direction: column; 
+            gap: 12px; 
+            z-index: 30; 
+            box-shadow: var(--shadow); 
+        }
+        .tool-btn { 
+            font-size: 22px; 
+            cursor: pointer; 
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); 
+            border: 2px solid transparent; 
+        }
+        .tool-btn.active { 
+            background: rgba(55, 66, 250, 0.15); 
+            border-color: var(--primary); 
+            transform: scale(1.1);
+        }
+        
+        /* 🎨 펜 색상 팔레트 */
+        .color-palette {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 5px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 10px;
+        }
+        .color-circle {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            cursor: pointer;
+            margin: 0 auto;
+            border: 2px solid transparent;
+            transition: 0.2s;
+        }
+        .color-circle.active {
+            transform: scale(1.2);
+            border-color: var(--text-main);
+        }
+
+        /* 샌드박스 오버레이 및 커서 */
+        #interaction-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 10; display: none; touch-action: none; 
+        }
+        .cursor-gun { cursor: crosshair !important; }
+        .cursor-knife { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><text y="20" font-size="20">🔪</text></svg>'), auto !important; }
+        .cursor-pen { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><text y="20" font-size="20">🖊️</text></svg>'), auto !important; }
+        .cursor-bomb { cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><text y="20" font-size="20">💣</text></svg>'), auto !important; }
+        .cursor-eraser { cursor: pointer !important; }
+
+        /* 이펙트 레이어 (파편, 자국 등) */
+        #effects-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none; z-index: 6; overflow: visible; 
+        }
+        
+        .bullet-hole { 
+            position: absolute; width: 16px; height: 16px; 
+            background: #111; border-radius: 50%; 
+            transform: translate(-50%, -50%); 
+            box-shadow: inset 0 0 8px #000, 0 0 0 2px rgba(0,0,0,0.4); 
+        }
+        
+        .bomb-scorch { 
+            position: absolute; width: 180px; height: 180px; 
+            background: radial-gradient(circle, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 30%, transparent 70%); 
+            transform: translate(-50%, -50%); mix-blend-mode: multiply; 
+        }
+        .dark-mode .bomb-scorch { mix-blend-mode: normal; }
+
+        /* 물리 파편 클래스 */
+        .physics-particle { 
+            position: absolute; border-radius: 50%; 
+            pointer-events: none; z-index: 50; 
+        }
+        .float-emoji { 
+            position: absolute; font-size: 35px; 
+            pointer-events: none; z-index: 50; 
+            animation: floatUp 4s ease-in forwards; 
+        }
+        @keyframes floatUp { 
+            0% { transform: translateY(100vh) scale(0.5); opacity:1; } 
+            100% { transform: translateY(-10vh) scale(1.5); opacity:0; } 
+        }
+
+        /* 🍞 플로팅 토스트 알림 */
+        #toast-container { 
+            position: absolute; top: 25px; left: 50%; 
+            transform: translateX(-50%); z-index: 200; 
+            display: flex; flex-direction: column; gap: 12px; 
+            pointer-events: none; 
+        }
+        .toast { 
+            background: rgba(0,0,0,0.75); color: white; 
+            padding: 12px 25px; border-radius: 25px; 
+            font-size: 14px; font-weight: 700; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+            animation: toastAnim 3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; 
+            backdrop-filter: blur(10px); 
+        }
+        @keyframes toastAnim { 
+            0% { opacity:0; transform: translateY(-20px) scale(0.9); } 
+            10%, 90% { opacity:1; transform: translateY(0) scale(1); } 
+            100% { opacity:0; transform: translateY(-20px) scale(0.9); } 
+        }
+
+        /* 팝업 모달 */
+        .modal-bg { 
+            position: absolute; top:0; left:0; width:100%; height:100%; 
+            background: rgba(0,0,0,0.5); z-index: 100; 
+            display: none; justify-content: center; align-items: center; 
+            opacity: 0; transition: opacity 0.3s; 
+        }
+        .modal-bg.active { opacity: 1; }
+        
+        .modal-content { 
+            background: var(--container-bg); padding: 35px; 
+            border-radius: 30px; width: 85%; box-shadow: var(--shadow); 
+            transform: scale(0.85); 
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); 
+        }
+        .modal-bg.active .modal-content { transform: scale(1); }
+        
+        .top-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 30px 25px 15px; z-index: 10; 
+        }
+        
+        .room-item { 
+            padding: 20px 25px; border-bottom: 1px solid var(--border-color); 
+            cursor: pointer; transition: 0.2s; 
+            display: flex; justify-content: space-between; align-items: center; 
+        }
+        .room-item:hover { background: rgba(0,0,0,0.02); }
+        .room-item:active { transform: scale(0.97); }
+    </style>
+</head>
+<body>
+    <div class="app-container" id="app">
+        <div id="toast-container"></div>
+
+        <div id="login-screen" class="screen" style="z-index: 3; padding: 40px; justify-content: center;">
+            <div style="text-align: center; margin-bottom: 50px;">
+                <h1 style="font-size: 48px; font-weight: 800; margin-bottom: 12px; background: linear-gradient(135deg, #3742fa, #ff4757); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Chattrix</h1>
+                <p style="color: var(--text-sub); font-size: 16px; font-weight: 700;">물리엔진 기반 하이퍼 메신저</p>
+            </div>
+            <input type="text" id="nick-input" class="input-box" placeholder="닉네임 입력 (욕설 필터 ON)" maxlength="8" onkeypress="if(event.key==='Enter') login()">
+            <button class="btn-main" onclick="login()">접속하기</button>
+        </div>
+
+        <div id="lobby-screen" class="screen" style="transform: translateX(100%); z-index: 2;">
+            <div class="top-header">
+                <div>
+                    <h2 style="font-weight: 800; font-size: 32px;">Rooms</h2>
+                    <div id="my-profile-name" style="font-size: 15px; color: var(--text-sub); font-weight:700; margin-top: 4px;"></div>
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <button class="btn-main" style="width:auto; padding:14px; font-size:18px;" id="dark-mode-btn" onclick="toggleDarkMode()">🌙</button>
+                    <button class="btn-main" style="width:auto; padding:14px 20px; font-size:15px;" onclick="openModal('create-modal')">방 만들기</button>
+                </div>
+            </div>
+            <div style="padding: 0 25px;">
+                <input type="text" id="search-input" class="search-box" placeholder="방 이름으로 검색..." oninput="renderRooms()">
+            </div>
+            <div id="room-list" style="overflow-y: auto; flex: 1;"></div>
+        </div>
+
+        <div id="chat-screen" class="screen" style="transform: translateX(100%); z-index: 1;">
+            <div class="chat-header">
+                <button style="font-size: 26px; color: var(--text-main); cursor:pointer;" onclick="leaveRoom()">◀</button>
+                <div id="room-title" style="font-weight: 800; font-size: 20px; cursor:pointer;" onclick="openModal('users-modal')"></div>
+                <button style="font-size: 26px; color: var(--text-main); cursor:pointer;" onclick="openModal('users-modal')">👥</button>
+            </div>
+            
+            <div class="chat-body-wrapper" id="scroll-wrapper">
+                <div class="chat-content" id="chat-body"></div>
+                
+                <div id="effects-layer">
+                    <svg id="drawing-svg" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:visible;"></svg>
+                </div>
+                <div id="interaction-layer"></div>
+            </div>
+            
+            <div class="typing-indicator" id="typing-status"></div>
+
+            <div class="reply-preview-bar" id="reply-preview">
+                <span id="reply-text" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%;"></span>
+                <span style="cursor:pointer; font-size: 16px;" onclick="cancelReply()">✖</span>
+            </div>
+
+            <div class="sandbox-toolbar" id="sandbox-toolbar">
+                <div class="tool-btn active" id="tool-cursor" onclick="setTool('cursor')" title="일반 채팅">🖱️</div>
+                <div class="tool-btn" id="tool-pen" onclick="setTool('pen')" title="마법 펜">🖊️</div>
+                <div class="tool-btn" id="tool-knife" onclick="setTool('knife')" title="절단 칼">🔪</div>
+                <div class="tool-btn" id="tool-gun" onclick="setTool('gun')" title="권총">🔫</div>
+                <div class="tool-btn" id="tool-bomb" onclick="setTool('bomb')" title="C4 폭탄">💣</div>
+                <div class="tool-btn" id="tool-eraser" onclick="setTool('eraser')" title="내 흔적 지우기">🧹</div>
+                <div class="tool-btn" id="tool-clear" onclick="socket.emit('clear_all_sandbox')" style="display:none; color:red; font-weight:bold;" title="방장 전용: 핵폭탄(초기화)">💥</div>
+                
+                <div class="color-palette" id="color-palette" style="display:none;">
+                    <div class="color-circle active" style="background:#3742fa;" onclick="setPenColor('#3742fa', this)"></div>
+                    <div class="color-circle" style="background:#ff4757;" onclick="setPenColor('#ff4757', this)"></div>
+                    <div class="color-circle" style="background:#2ed573;" onclick="setPenColor('#2ed573', this)"></div>
+                    <div class="color-circle" style="background:#1e90ff;" onclick="setPenColor('#1e90ff', this)"></div>
+                    <div class="color-circle" style="background:#ffa502;" onclick="setPenColor('#ffa502', this)"></div>
+                </div>
+            </div>
+
+            <div class="effect-menu" id="effect-menu">
+                <div class="tool-btn" onclick="sendEffect('party')">🎉</div>
+                <div class="tool-btn" onclick="sendEffect('balloon')">🎈</div>
+                <div class="tool-btn" onclick="sendEffect('heart')">💖</div>
+            </div>
+
+            <div class="chat-footer">
+                <button class="effect-btn" onclick="toggleEffectMenu()">✨</button>
+                <button class="effect-btn" onclick="document.getElementById('image-upload').click()">📸</button>
+                <input type="file" id="image-upload" accept="image/*" style="display:none;" onchange="handleImageUpload(event)">
+                
+                <div class="msg-input-wrapper">
+                    <input type="text" id="msg-input" class="msg-input" placeholder="메시지를 입력하세요..." oninput="handleTyping()" onkeypress="if(event.key==='Enter') sendMsg()">
+                </div>
+                <button style="font-size:26px; color:var(--primary); cursor:pointer; font-weight:bold;" onclick="sendMsg()">➤</button>
+            </div>
+        </div>
+
+        <div id="context-menu" class="context-menu">
+            <div class="context-item" onclick="setReply()">↩️ 답장하기</div>
+            <div class="context-item" id="delete-btn" style="color:#ff4757; display:none;" onclick="deleteMessage()">🗑️ 삭제하기</div>
+        </div>
+        
+        <div id="reaction-picker" class="reaction-picker">
+            <span onclick="toggleReaction('❤️')">❤️</span>
+            <span onclick="toggleReaction('😂')">😂</span>
+            <span onclick="toggleReaction('😮')">😮</span>
+            <span onclick="toggleReaction('👍')">👍</span>
+            <span onclick="toggleReaction('🔥')">🔥</span>
+        </div>
+
+        <div id="create-modal" class="modal-bg" onclick="if(event.target===this) closeModals()">
+            <div class="modal-content">
+                <h3 style="margin-bottom:25px; font-size:24px; font-weight:800;">새 방 만들기</h3>
+                <input type="text" id="new-room-title" class="input-box" placeholder="방 제목을 입력하세요">
+                <input type="password" id="new-room-password" class="input-box" placeholder="비밀번호 (선택사항, 안 쓰면 공개방)">
+                
+                <label style="display:flex; align-items:center; gap:12px; margin-bottom:30px; font-weight:700; cursor:pointer; padding: 10px; background: rgba(0,0,0,0.03); border-radius: 12px;">
+                    <input type="checkbox" id="sandbox-toggle" style="width:24px; height:24px; cursor:pointer;"> 
+                    ⚔️ 샌드박스 (무기/물리엔진) 활성화
+                </label>
+                <button class="btn-main" onclick="createRoom()">생성하기</button>
+            </div>
+        </div>
+
+        <div id="users-modal" class="modal-bg" onclick="if(event.target===this) closeModals()">
+            <div class="modal-content">
+                <h3 style="margin-bottom:20px; font-size:22px; font-weight:800;">참가자 목록</h3>
+                <div id="users-list-container" style="max-height:350px; overflow-y:auto; padding-right:10px;"></div>
+            </div>
+        </div>
+
+        <div id="password-modal" class="modal-bg" onclick="if(event.target===this) closeModals()">
+            <div class="modal-content">
+                <h3 style="margin-bottom:25px; font-size:24px; font-weight:800;">비밀번호 확인 🔒</h3>
+                <input type="password" id="join-password-input" class="input-box" placeholder="비밀번호를 입력하세요">
+                <button class="btn-main" onclick="joinLockedRoom()">입장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="particle-container" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; overflow:hidden;"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // ============================================================================
+        // 자체 개발 Web Audio API 사운드 엔진 (외부 에셋 불필요!)
+        // ============================================================================
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const actx = new AudioContext();
+
+        const SoundEngine = {
+            playGun: function() {
+                if (actx.state === 'suspended') actx.resume();
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, actx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+                gain.gain.setValueAtTime(1, actx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.2);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(); osc.stop(actx.currentTime + 0.2);
+            },
+            playSword: function() {
+                if (actx.state === 'suspended') actx.resume();
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(800, actx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, actx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.5, actx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, actx.currentTime + 0.15);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(); osc.stop(actx.currentTime + 0.15);
+            },
+            playBomb: function() {
+                if (actx.state === 'suspended') actx.resume();
+                const osc = actx.createOscillator();
+                const gain = actx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(100, actx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.5);
+                gain.gain.setValueAtTime(1.5, actx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.8);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(); osc.stop(actx.currentTime + 0.8);
+            }
+        };
+
+        // ============================================================================
+        // 1. 소켓 초기화 및 로그인 로직
+        // ============================================================================
+        const socket = io();
+        let myProfile = {}, myRoom = "", isHost = false, isSandboxRoom = false;
+        let globalRooms = {}; 
+        let targetLockedRoom = ""; 
+        let typingTimeout, typingDotsInterval; 
+        let selectedMsgId = null; 
+        let replyingTo = null;
+        let lastMsgTime = 0; 
+        let spamWarns = 0; 
+        let isBlocked = false; 
+        let currentPenColor = '#3742fa'; // 기본 펜 색상
+        
+        window.onload = () => { 
+            const savedNick = localStorage.getItem('chattrixNick'); 
+            if(savedNick) { 
+                document.getElementById('nick-input').value = savedNick; 
+                login(); 
+            } 
+        };
+
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div'); 
+            toast.className = 'toast'; 
+            toast.innerText = msg;
+            container.appendChild(toast); 
+            setTimeout(() => toast.remove(), 3500); // 토스트 시간 약간 증가
+        }
+
+        function login() { 
+            // 사운드 컨텍스트 활성화를 위한 사용자 인터랙션 트릭
+            if (actx.state === 'suspended') actx.resume();
+            
+            const nick = document.getElementById('nick-input').value.trim(); 
+            if(nick) socket.emit('login', nick); 
+        }
+
+        socket.on('login_success', (profile) => { 
+            myProfile = profile; 
+            localStorage.setItem('chattrixNick', profile.rawName); 
+            document.getElementById('my-profile-name').innerText = profile.rawName; 
+            document.getElementById('login-screen').style.transform = 'translateX(-100%)'; 
+            document.getElementById('lobby-screen').style.transform = 'translateX(0)'; 
+        });
+
+        socket.on('error_msg', (msg) => { 
+            alert(msg); 
+            localStorage.removeItem('chattrixNick'); 
+        });
+
+        function toggleDarkMode() { 
+            const isDark = document.body.classList.toggle('dark-mode'); 
+            document.getElementById('dark-mode-btn').innerText = isDark ? '☀️' : '🌙'; 
+        }
+
+        // ============================================================================
+        // 2. 로비 및 방 관리
+        // ============================================================================
+        socket.on('update_rooms', (rooms) => { globalRooms = rooms; renderRooms(); });
+        
+        function renderRooms() {
+            const query = document.getElementById('search-input').value.toLowerCase(); 
+            const list = document.getElementById('room-list'); 
+            list.innerHTML = '';
+            
+            for (const [title, room] of Object.entries(globalRooms)) {
+                if (title.toLowerCase().includes(query)) {
+                    list.innerHTML += `
+                        <div class="room-item" onclick="handleRoomClick('${title}', ${room.isLocked})">
+                            <div>
+                                <div style="font-weight: 800; font-size:17px;">
+                                    ${room.isLocked ? '🔒 ' : ''}${title} ${room.isSandbox ? '⚔️' : ''} 
+                                    <span style="color:var(--primary);">(${room.userCount})</span>
+                                </div>
+                                <div style="font-size: 14px; color: var(--text-sub); margin-top:6px;">
+                                    ${room.lastMessage || '새로운 채팅방입니다.'}
+                                </div>
+                            </div>
+                        </div>`;
+                }
+            }
+        }
+
+        function createRoom() {
+            const title = document.getElementById('new-room-title').value.trim(); 
+            const password = document.getElementById('new-room-password').value; 
+            const isSandbox = document.getElementById('sandbox-toggle').checked;
+            if(title) { 
+                socket.emit('create_room', { title, password: password || null, isSandbox }); 
+                document.getElementById('new-room-password').value = ''; 
+            }
+            closeModals();
+        }
+
+        function handleRoomClick(title, isLocked) { 
+            if (isLocked) { 
+                targetLockedRoom = title; 
+                document.getElementById('join-password-input').value = ''; 
+                openModal('password-modal'); 
+            } else { 
+                socket.emit('join_room', { title, password: null }); 
+            } 
+        }
+
+        function joinLockedRoom() { 
+            socket.emit('join_room', { title: targetLockedRoom, password: document.getElementById('join-password-input').value }); 
+            closeModals(); 
+        }
+
+        socket.on('room_created', (title) => socket.emit('join_room', { title, password: document.getElementById('new-room-password').value || null }));
+        
+        socket.on('join_success', (data) => {
+            myRoom = data.title; 
+            isHost = data.isHost; 
+            isSandboxRoom = data.isSandbox;
+            
+            document.getElementById('room-title').innerText = myRoom; 
+            document.getElementById('chat-body').innerHTML = ''; 
+            cancelReply();
+            
+            document.getElementById('sandbox-toolbar').style.display = isSandboxRoom ? 'flex' : 'none'; 
+            document.getElementById('tool-clear').style.display = isHost ? 'flex' : 'none';
+            document.getElementById('effects-layer').innerHTML = '<svg id="drawing-svg" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:visible;"></svg>';
+            
+            setTool('cursor');
+            if(data.effects) data.effects.forEach(eff => drawSandboxEffect(eff, false));
+            
+            document.getElementById('lobby-screen').style.transform = 'translateX(-100%)'; 
+            document.getElementById('chat-screen').style.transform = 'translateX(0)';
+        });
+
+        function leaveRoom() { 
+            socket.emit('leave_room'); 
+            myRoom = ""; 
+            document.getElementById('chat-screen').style.transform = 'translateX(100%)'; 
+            document.getElementById('lobby-screen').style.transform = 'translateX(0)'; 
+        }
+        
+        socket.on('room_closed', (msg) => { alert(msg); leaveRoom(); closeModals(); });
+        socket.on('kicked', (msg) => { alert(msg); leaveRoom(); closeModals(); });
+        socket.on('toast_message', (msg) => showToast(msg));
+
+        socket.on('room_users_update', (data) => {
+            isHost = (data.host === socket.id); 
+            document.getElementById('tool-clear').style.display = isHost && isSandboxRoom ? 'flex' : 'none';
+            
+            const container = document.getElementById('users-list-container'); 
+            container.innerHTML = '';
+            for (const [id, profile] of Object.entries(data.users)) {
+                const kickBtn = (isHost && id !== socket.id) 
+                    ? `<button onclick="socket.emit('kick_user', '${id}')" style="color:white; font-weight:bold; cursor:pointer; background:#ff4757; padding:8px 16px; border-radius:12px; transition:0.2s; border:none; box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3);">강퇴</button>` 
+                    : '';
+                container.innerHTML += `
+                    <div style="padding:15px 0; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:16px; font-weight:700; display:flex; align-items:center;">
+                            <img src="${profile.profile}" style="width:36px; height:36px; border-radius:50%; margin-right:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            ${profile.name} ${data.host === id ? '👑' : ''}
+                        </span>
+                        ${kickBtn}
+                    </div>`;
+            }
+        });
+
+        // ============================================================================
+        // 3. 채팅 전송, 이미지 업로드 및 DOM 렌더링
+        // ============================================================================
+        function handleTyping() {
+            socket.emit('typing', true); 
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => socket.emit('typing', false), 1500);
+        }
+        
+        socket.on('user_typing', ({ user, isTyping }) => {
+            const status = document.getElementById('typing-status'); 
+            clearInterval(typingDotsInterval);
+            if (isTyping) { 
+                let dots = 0; 
+                typingDotsInterval = setInterval(() => { 
+                    dots = (dots + 1) % 4; 
+                    status.innerText = `${user}님이 입력 중입니다${'.'.repeat(dots)}`; 
+                }, 400); 
+            } else { status.innerText = ''; }
+        });
+
+        function sendMsg() {
+            if(isBlocked) return showToast('🚨 도배 감지! 5초간 채팅이 금지됩니다.');
+            
+            const input = document.getElementById('msg-input');
+            if(input.value.trim()) {
+                const now = Date.now();
+                if(now - lastMsgTime < 800) spamWarns++; else spamWarns = 0;
+                if(spamWarns >= 4) { 
+                    isBlocked = true; 
+                    showToast('🚨 도배 감지! 5초간 차단됩니다.'); 
+                    setTimeout(() => { isBlocked = false; spamWarns = 0; }, 5000); 
+                    return; 
+                }
+                lastMsgTime = now;
+
+                socket.emit('send_message', { 
+                    id: 'msg_'+Date.now(), 
+                    text: input.value.trim(), 
+                    time: new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}), 
+                    type: 'text', 
+                    replyTo: replyingTo 
+                });
+                
+                input.value = ''; 
+                socket.emit('typing', false); 
+                cancelReply();
+            }
+        }
+
+        // 사진 전송
+        function handleImageUpload(e) {
+            const file = e.target.files;
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    socket.emit('send_message', { 
+                        id: 'msg_'+Date.now(), 
+                        text: evt.target.result, 
+                        time: new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}), 
+                        type: 'image', 
+                        replyTo: replyingTo 
+                    });
+                    cancelReply();
+                }; 
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // 사진 다운로드
+        function downloadImage(src) {
+            const a = document.createElement('a');
+            a.href = src;
+            a.download = 'Chattrix_Image_' + Date.now() + '.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('📸 이미지가 성공적으로 다운로드되었습니다.');
+        }
+        
+        socket.on('message_filtered', (data) => renderMessage(data, 'sent'));
+        socket.on('chat_message', (data) => renderMessage(data, 'received'));
+        
+        // 🔥 innerHTML 대신 createElement 사용 (속도 200% 증가 및 이벤트 증발 완벽 해결)
+        function renderMessage(data, direction) {
+            const body = document.getElementById('chat-body');
+            const isMine = direction === 'sent';
+            
+            let contentHTML = '';
+            if(data.replyTo) contentHTML += `<div class="reply-quote">${data.replyTo.sender}: ${data.replyTo.text}</div>`;
+            
+            const rawText = data.type === 'image' ? '(사진)' : data.text.replace(/'/g, "\\'");
+            
+            if(data.type === 'image') {
+                contentHTML += `<img src="${data.text}" class="chat-image" onclick="downloadImage(this.src)">`; 
+                contentHTML += `<div class="img-download-text">👆 터치하여 이미지 다운로드</div>`;
+            } else {
+                contentHTML += data.text;
+            }
+
+            const div = document.createElement('div');
+            div.className = `msg-row ${direction}`;
+            div.id = data.id;
+
+            div.innerHTML = `
+                ${!isMine ? `<img src="${data.senderInfo.profile}" class="profile-img">` : ''}
+                <div class="msg-content-box">
+                    ${!isMine ? `<div style="font-size:13px; margin-bottom:4px; font-weight:800; color:var(--text-sub);">${data.senderInfo.name}</div>` : ''}
+                    <div class="msg-bubble" onclick="if(currentTool==='cursor') openContextMenu(event, '${data.id}', '${data.senderInfo.name}', '${rawText}', ${isMine})">
+                        ${contentHTML}
+                    </div>
+                    <div class="add-react-btn" onclick="openReactionPicker(event, '${data.id}')">🙂</div>
+                    <div class="reaction-bar" id="react_${data.id}"></div>
+                </div>
+            `;
+            
+            body.appendChild(div);
+            
+            const scrollWrap = document.getElementById('scroll-wrapper');
+            // 부드러운 스크롤 이동
+            setTimeout(() => scrollWrap.scrollTo({ top: scrollWrap.scrollHeight, behavior: 'smooth' }), 100);
+        }
+
+        socket.on('message_deleted', (msgId) => {
+            const row = document.getElementById(msgId);
+            if(row) {
+                const bubble = row.querySelector('.msg-bubble');
+                bubble.innerHTML = '<span style="color:var(--text-sub); font-style:italic; font-size:14px; font-weight:700;">🚫 삭제된 메시지입니다.</span>';
+                bubble.onclick = null;
+                row.querySelector('.add-react-btn')?.remove(); 
+                row.querySelector('.reaction-bar')?.remove();
+            }
+        });
+
+        // ============================================================================
+        // 4. 컨텍스트 메뉴, 답장, 1인 1리액션 시스템
+        // ============================================================================
+        let tempReplyData = null;
+        
+        function openContextMenu(e, msgId, senderName, rawText, isMine) {
+            e.stopPropagation(); 
+            selectedMsgId = msgId; 
+            tempReplyData = { sender: senderName, text: rawText };
+            
+            const menu = document.getElementById('context-menu');
+            document.getElementById('delete-btn').style.display = isMine ? 'block' : 'none';
+            menu.style.display = 'flex';
+            
+            const rect = e.target.getBoundingClientRect();
+            let top = rect.top - 60; 
+            let left = rect.left - 50;
+            if(left < 10) left = 10; // 모바일 화면 밖으로 나가는 것 방지
+
+            menu.style.top = top + 'px'; 
+            menu.style.left = left + 'px';
+            
+            setTimeout(() => document.addEventListener('click', closeContextMenu), 10);
+        }
+        
+        function closeContextMenu() { 
+            document.getElementById('context-menu').style.display = 'none'; 
+            document.removeEventListener('click', closeContextMenu); 
+        }
+        
+        function setReply() { 
+            replyingTo = tempReplyData; 
+            document.getElementById('reply-text').innerText = `답장할 메시지: ${replyingTo.text}`; 
+            document.getElementById('reply-preview').style.display = 'flex'; 
+            document.getElementById('msg-input').focus(); 
+            closeContextMenu(); 
+        }
+        
+        function cancelReply() { 
+            replyingTo = null; 
+            document.getElementById('reply-preview').style.display = 'none'; 
+        }
+        
+        function deleteMessage() { 
+            socket.emit('delete_message', selectedMsgId); 
+            closeContextMenu(); 
+        }
+
+        // 1인 1리액션 로직
+        function openReactionPicker(e, msgId) {
+            e.stopPropagation(); 
+            selectedMsgId = msgId; 
+            const menu = document.getElementById('reaction-picker');
+            menu.style.display = 'flex'; 
+            
+            const rect = e.target.getBoundingClientRect();
+            let top = rect.top - 60; 
+            let left = rect.left - 70;
+            if(left < 10) left = 10;
+
+            menu.style.top = top + 'px'; 
+            menu.style.left = left + 'px';
+            setTimeout(() => document.addEventListener('click', closeReactionPicker), 10);
+        }
+        
+        function closeReactionPicker() { 
+            document.getElementById('reaction-picker').style.display = 'none'; 
+            document.removeEventListener('click', closeReactionPicker); 
+        }
+        
+        function toggleReaction(emoji, msgId = selectedMsgId) { 
+            if(!msgId) return;
+            socket.emit('toggle_reaction', { msgId, emoji }); 
+            closeReactionPicker(); 
+        }
+        
+        const reactionData = {}; 
+        socket.on('reaction_updated', ({ msgId, emoji, userId }) => {
+            if(!reactionData[msgId]) reactionData[msgId] = {};
+            // 기존에 누른 리액션이 있다면 삭제
+            for(let e in reactionData[msgId]) {
+                if(reactionData[msgId][e].has(userId)) reactionData[msgId][e].delete(userId);
+            }
+            if(!reactionData[msgId][emoji]) reactionData[msgId][emoji] = new Set();
+            reactionData[msgId][emoji].add(userId); // 새 리액션 추가
+            
+            renderReactions(msgId);
+        });
+
+        function renderReactions(msgId) {
+            const bar = document.getElementById(`react_${msgId}`);
+            if(!bar) return; 
+            bar.innerHTML = '';
+            for(let emoji in reactionData[msgId]) {
+                const users = reactionData[msgId][emoji];
+                if(users.size > 0) {
+                    const isMe = users.has(socket.id);
+                    bar.innerHTML += `<div class="reaction-badge ${isMe ? 'my-react' : ''}" onclick="toggleReaction('${emoji}', '${msgId}')"><span>${emoji}</span> <span style="font-weight:700;">${users.size}</span></div>`;
+                }
+            }
+        }
+
+        // 이펙트 기능
+        function toggleEffectMenu() { 
+            const menu = document.getElementById('effect-menu'); 
+            menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex'; 
+        }
+        
+        function sendEffect(type) { 
+            toggleEffectMenu(); 
+            socket.emit('trigger_effect', type); 
+            playEffect(type); 
+        }
+        
+        socket.on('play_effect', (type) => playEffect(type));
+
+        function playEffect(type) {
+            const container = document.getElementById('particle-container');
+            if (type === 'party') {
+                const colors = ['#3742fa', '#ff4757', '#2ed573', '#ffa502', '#ffffff'];
+                for(let i=0; i<80; i++) spawnParticles(Math.random() * window.innerWidth, window.innerHeight, colors[Math.floor(Math.random() * colors.length)], 1, false, true);
+            } else {
+                const emoji = type === 'balloon' ? '🎈' : '💖';
+                for(let i=0; i<20; i++) {
+                    const el = document.createElement('div'); 
+                    el.className = 'float-emoji'; 
+                    el.innerText = emoji;
+                    el.style.left = (Math.random() * 90) + 'vw'; 
+                    el.style.animationDuration = (Math.random() * 2 + 3) + 's';
+                    container.appendChild(el); 
+                    setTimeout(() => el.remove(), 5000);
+                }
+            }
+        }
+
+        // ============================================================================
+        // 5. ⚔️ 궁극의 물리엔진 샌드박스 (색상 팔레트 추가)
+        // ============================================================================
+        let currentTool = 'cursor'; 
+        let isDrawing = false; 
+        let startX = 0, startY = 0; 
+        let tempPath = null;
+
+        const interactLayer = document.getElementById('interaction-layer'); 
+        const scrollWrap = document.getElementById('scroll-wrapper'); 
+        const effLayer = document.getElementById('effects-layer');
+
+        function setTool(tool) {
+            currentTool = tool; 
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); 
+            document.getElementById(`tool-${tool}`).classList.add('active');
+            
+            // 펜을 선택했을 때만 팔레트 표시
+            document.getElementById('color-palette').style.display = (tool === 'pen') ? 'flex' : 'none';
+
+            if(tool === 'cursor') { 
+                interactLayer.style.display = 'none'; 
+            } else { 
+                interactLayer.style.display = 'block'; 
+                interactLayer.className = `cursor-${tool}`; 
+            }
+        }
+
+        function setPenColor(color, element) {
+            currentPenColor = color;
+            document.querySelectorAll('.color-circle').forEach(c => c.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function getCoords(e) { 
+            return { 
+                x: e.clientX - scrollWrap.getBoundingClientRect().left, 
+                y: e.clientY - scrollWrap.getBoundingClientRect().top + scrollWrap.scrollTop 
+            }; 
+        }
+
+        function eraseAtPoint(e) {
+            interactLayer.style.display = 'none';
+            const allEffs = effLayer.querySelectorAll('*'); 
+            allEffs.forEach(el => el.style.pointerEvents = 'auto');
+            
+            const hit = document.elementFromPoint(e.clientX, e.clientY);
+            
+            allEffs.forEach(el => el.style.pointerEvents = ''); 
+            interactLayer.style.display = 'block';
+
+            if(hit && hit.hasAttribute('data-owner')) {
+                if (hit.getAttribute('data-owner') === socket.id || isHost) { 
+                    socket.emit('remove_sandbox_effect', hit.id); 
+                    hit.remove(); 
+                }
+            }
+        }
+
+        interactLayer.addEventListener('pointerdown', (e) => {
+            if(currentTool === 'cursor') return; 
+            e.preventDefault(); 
+            isDrawing = true;
+            const c = getCoords(e); 
+            startX = c.x; 
+            startY = c.y;
+
+            if(currentTool === 'pen') {
+                tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                tempPath.setAttribute('stroke', currentPenColor); 
+                tempPath.setAttribute('stroke-width', '5'); 
+                tempPath.setAttribute('fill', 'none'); 
+                tempPath.setAttribute('stroke-linecap', 'round'); 
+                tempPath.setAttribute('stroke-linejoin', 'round'); 
+                tempPath.setAttribute('d', `M ${startX} ${startY}`);
+                document.getElementById('drawing-svg').appendChild(tempPath);
+            } 
+            else if(currentTool === 'gun') {
+                SoundEngine.playGun(); // 🔊 총 소리
+                const eff = { id: 'eff_'+Date.now(), type: 'gun', x: c.x, y: c.y, owner: socket.id };
+                socket.emit('add_sandbox_effect', eff); 
+                drawSandboxEffect(eff, true);
+                
+                // 총 크랙 물리 처리
+                interactLayer.style.display = 'none'; 
+                const hit = document.elementFromPoint(e.clientX, e.clientY); 
+                interactLayer.style.display = 'block';
+                if(hit && hit.closest('.msg-bubble')) {
+                    const bubble = hit.closest('.msg-bubble'); 
+                    const rect = bubble.getBoundingClientRect();
+                    const relX = ((e.clientX - rect.left) / rect.width) * 100; 
+                    const relY = ((e.clientY - rect.top) / rect.height) * 100;
+                    const rowId = hit.closest('.msg-row').id;
+                    socket.emit('crack_message', { msgId: rowId, x: relX, y: relY }); 
+                    playCrackAnimation(rowId, relX, relY);
+                }
+                isDrawing = false;
+            }
+            else if(currentTool === 'bomb') {
+                SoundEngine.playBomb(); // 🔊 폭탄 소리
+                const eff = { id: 'eff_'+Date.now(), type: 'bomb', x: c.x, y: c.y, owner: socket.id };
+                socket.emit('add_sandbox_effect', eff); 
+                drawSandboxEffect(eff, true);
+                
+                socket.emit('blow_messages', { x: e.clientX, y: e.clientY }); 
+                playBlowAnimation(e.clientX, e.clientY);
+                isDrawing = false;
+            }
+            else if(currentTool === 'eraser') { eraseAtPoint(e); }
+        });
+
+        interactLayer.addEventListener('pointermove', (e) => {
+            if(!isDrawing) return; 
+            e.preventDefault(); 
+            const c = getCoords(e);
+            
+            if(currentTool === 'pen' && tempPath) { 
+                tempPath.setAttribute('d', `${tempPath.getAttribute('d')} L ${c.x} ${c.y}`); 
+            } 
+            else if (currentTool === 'eraser') { eraseAtPoint(e); }
+        });
+
+        interactLayer.addEventListener('pointerup', (e) => {
+            if(!isDrawing) return; 
+            isDrawing = false; 
+            const c = getCoords(e);
+
+            if(currentTool === 'pen' && tempPath) {
+                const d = tempPath.getAttribute('d'); 
+                tempPath.remove(); 
+                tempPath = null;
+                const eff = { id: 'eff_'+Date.now(), type: 'pen', path: d, color: currentPenColor, owner: socket.id };
+                socket.emit('add_sandbox_effect', eff); 
+                drawSandboxEffect(eff, true);
+            } 
+            else if(currentTool === 'knife') {
+                SoundEngine.playSword(); // 🔊 칼 소리
+                interactLayer.style.display = 'none'; 
+                const hit = document.elementFromPoint(e.clientX, e.clientY); 
+                interactLayer.style.display = 'block';
+                
+                let pLeftY = 50, pRightY = 50;
+
+                // 칼 정밀 절단 좌표 계산
+                if(hit && hit.closest('.msg-bubble')) {
+                    const bubble = hit.closest('.msg-bubble'); 
+                    const rect = bubble.getBoundingClientRect();
+                    const dx = e.clientX - startX, dy = e.clientY - startY;
+                    if(dx !== 0) {
+                        const m = dy / dx;
+                        const leftY = m * (rect.left - startX) + startY;
+                        const rightY = m * (rect.right - startX) + startY;
+                        pLeftY = ((leftY - rect.top) / rect.height) * 100;
+                        pRightY = ((rightY - rect.top) / rect.height) * 100;
+                    }
+                    const rowId = hit.closest('.msg-row').id;
+                    socket.emit('cut_message', { msgId: rowId, pLeftY, pRightY });
+                    playCutAnimation({ msgId: rowId, pLeftY, pRightY });
+                }
+
+                const eff = { id: 'eff_'+Date.now(), type: 'knife', x1: startX, y1: startY, x2: c.x, y2: c.y, cX: e.clientX, cY: e.clientY, owner: socket.id };
+                socket.emit('add_sandbox_effect', eff); 
+                drawSandboxEffect(eff, true);
+            }
+        });
+
+        socket.on('draw_effect', (eff) => { 
+            if(eff.owner !== socket.id) drawSandboxEffect(eff, true); 
+        });
+
+        function drawSandboxEffect(eff, playAnim) {
+            const svg = document.getElementById('drawing-svg');
+            const isMine = (eff.owner === socket.id);
+            const containerWidth = scrollWrap.clientWidth;
+
+            const flipX = (x) => (isMine || eff.type === 'pen') ? x : (containerWidth - x);
+            
+            let el;
+            if(eff.type === 'pen') {
+                el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                el.setAttribute('d', eff.path); 
+                el.setAttribute('stroke', eff.color || '#3742fa'); 
+                el.setAttribute('stroke-width', '5'); 
+                el.setAttribute('fill', 'none'); 
+                el.setAttribute('stroke-linecap', 'round');
+                el.setAttribute('stroke-linejoin', 'round');
+                svg.appendChild(el);
+            } 
+            else if(eff.type === 'knife') {
+                el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                el.setAttribute('x1', flipX(eff.x1)); el.setAttribute('y1', eff.y1);
+                el.setAttribute('x2', flipX(eff.x2)); el.setAttribute('y2', eff.y2);
+                el.setAttribute('stroke', '#ff4757'); el.setAttribute('stroke-width', '4');
+                el.setAttribute('stroke-linecap', 'round');
+                
+                if(playAnim) {
+                    el.style.strokeDasharray = '500'; 
+                    el.animate([{strokeDashoffset: 500}, {strokeDashoffset: 0}], {duration: 120, easing: 'ease-out', fill: 'forwards'});
+                    spawnParticles(flipX(eff.cX), eff.cY, '#ff4757', 15, false, false);
+                }
+                svg.appendChild(el);
+            }
+            else if(eff.type === 'gun') {
+                el = document.createElement('div'); 
+                el.className = 'bullet-hole'; 
+                el.style.left = flipX(eff.x) + 'px'; 
+                el.style.top = eff.y + 'px';
+                effLayer.appendChild(el);
+                if(playAnim) spawnParticles(flipX(eff.x), eff.y - scrollWrap.scrollTop, '#7f8fa6', 20, false, false);
+            }
+            else if(eff.type === 'bomb') {
+                el = document.createElement('div'); 
+                el.className = 'bomb-scorch'; 
+                el.style.left = flipX(eff.x) + 'px'; 
+                el.style.top = eff.y + 'px';
+                effLayer.appendChild(el);
+                if(playAnim) {
+                    document.body.classList.add('shake-screen'); 
+                    setTimeout(() => document.body.classList.remove('shake-screen'), 300);
+                    spawnParticles(flipX(eff.x), eff.y - scrollWrap.scrollTop, '#ff4757', 60, true, false);
+                }
+            }
+            
+            if(el) { el.id = eff.id; el.setAttribute('data-owner', eff.owner); }
+        }
+
+        socket.on('message_cut_anim', (data) => playCutAnimation(data));
+
+        function playCutAnimation({ msgId, pLeftY, pRightY }) {
+            const row = document.getElementById(msgId); 
+            if(!row) return;
+            const contentBox = row.querySelector('.msg-content-box'); 
+            const bubble = row.querySelector('.msg-bubble');
+            if(!bubble || bubble.classList.contains('cut-top')) return;
+
+            // 정밀 절단 알고리즘 클립패스
+            bubble.style.clipPath = `polygon(0 0, 100% 0, 100% ${pRightY}%, 0 ${pLeftY}%)`;
+            bubble.classList.add('cut-top');
+
+            const fallingPart = bubble.cloneNode(true);
+            fallingPart.className = 'msg-bubble cut-falling';
+            fallingPart.style.clipPath = `polygon(0 ${pLeftY}%, 100% ${pRightY}%, 100% 100%, 0 100%)`;
+            contentBox.appendChild(fallingPart);
+            
+            setTimeout(() => fallingPart.remove(), 1500);
+        }
+
+        socket.on('message_crack_anim', (data) => playCrackAnimation(data.msgId, data.x, data.y));
+        
+        function playCrackAnimation(msgId, x, y) {
+            const row = document.getElementById(msgId); if(!row) return;
+            const bubble = row.querySelector('.msg-bubble'); if(!bubble) return;
+            const crack = document.createElement('div'); crack.className = 'glass-crack';
+            crack.style.left = `${x}%`; crack.style.top = `${y}%`;
+            bubble.appendChild(crack);
+        }
+
+        socket.on('messages_blown_anim', (data) => playBlowAnimation(data.x, data.y));
+        
+        function playBlowAnimation(cx, cy) {
+            document.querySelectorAll('.msg-row').forEach(row => {
+                const rect = row.getBoundingClientRect();
+                const rcx = rect.left + rect.width/2; 
+                const rcy = rect.top + rect.height/2;
+                const dx = rcx - cx; 
+                const dy = rcy - cy; 
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if(dist < 350) { 
+                    const force = (350 - dist) / 350;
+                    row.style.transition = 'transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.5s ease-out';
+                    row.style.transform = `translate(${(dx/dist)*force*800}px, ${(dy/dist)*force*800 - 300}px) rotate(${(Math.random()-0.5)*180}deg) scale(1.5)`;
+                    row.style.opacity = '0';
+                    setTimeout(() => row.style.display = 'none', 600);
+                }
+            });
+        }
+
+        function spawnParticles(x, y, color, count, isBomb, isParty) {
+            const container = document.getElementById('particle-container');
+            for(let i=0; i<count; i++) {
+                const p = document.createElement('div'); 
+                p.className = 'physics-particle';
+                const size = Math.random() * (isBomb ? 12 : 6) + (isParty ? 6 : 3);
+                p.style.width = size + 'px'; 
+                p.style.height = size + 'px';
+                p.style.background = isBomb && Math.random()>0.5 ? '#111' : color;
+                p.style.left = x + 'px'; 
+                p.style.top = y + 'px'; 
+                container.appendChild(p);
+
+                let vx = (Math.random() - 0.5) * (isBomb ? 55 : (isParty ? 25 : 20));
+                let vy = (Math.random() - 0.5) * (isBomb ? 55 : 20) - (isBomb ? 30 : (isParty ? 45 : 10));
+                let posX = x, posY = y;
+                
+                const anim = setInterval(() => {
+                    vy += 1.5; 
+                    posX += vx; 
+                    posY += vy;
+                    p.style.transform = `translate(${posX - x}px, ${posY - y}px) rotate(${Math.random()*360}deg)`;
+                    if(posY > window.innerHeight + 100) { clearInterval(anim); p.remove(); }
+                }, 16);
+            }
+        }
+
+        socket.on('erase_effect', (id) => { const el = document.getElementById(id); if(el) el.remove(); });
+        socket.on('clear_all_effects', () => { document.getElementById('effects-layer').innerHTML = '<svg id="drawing-svg" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:visible;"></svg>'; });
+        
+        function openModal(id) { const m = document.getElementById(id); m.style.display = 'flex'; setTimeout(() => m.classList.add('active'), 10); }
+        function closeModals() { document.querySelectorAll('.modal-bg').forEach(m => { m.classList.remove('active'); setTimeout(() => m.style.display = 'none', 300); }); }
+    </script>
+</body>
+</html>
